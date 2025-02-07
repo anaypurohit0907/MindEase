@@ -61,27 +61,15 @@ export function MessageBubble({ message, isThinking, isLatest, hideThinking, onR
     p(props) {
       const { children } = props;
       if (typeof children === 'string') {
-        // Improved math pattern matching
-        const parts = children.split(/(\\\[.*?\\\]|\\\(.*?\\\))/g);
+        // Replace backslashed integral with direct integral symbol
+        const text = children.replace(/\\∫/g, '∫');
+        const parts = text.split(/(\$.*?\$)/g);
+        
         return (
           <p className="mb-4 last:mb-0">
             {parts.map((part, i) => {
-              if (part.startsWith('\\[') && part.endsWith('\\]')) {
-                // Display math
-                const math = part.slice(2, -2)
-                  .replace(/\\frac/g, '\\frac ')  // Add space after frac
-                  .replace(/\\text/g, '\\text ')  // Add space after text
-                  .replace(/\s+/g, ' ')          // Normalize spaces
-                  .trim();
-                return <BlockMath key={i}>{math}</BlockMath>;
-              }
-              if (part.startsWith('\\(') && part.endsWith('\\)')) {
-                // Inline math
-                const math = part.slice(2, -2)
-                  .replace(/\\frac/g, '\\frac ')
-                  .replace(/\\text/g, '\\text ')
-                  .replace(/\s+/g, ' ')
-                  .trim();
+              if (part.startsWith('$') && part.endsWith('$')) {
+                const math = part.slice(1, -1).trim();
                 return <InlineMath key={i}>{math}</InlineMath>;
               }
               return part;

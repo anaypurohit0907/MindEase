@@ -342,7 +342,10 @@ export default function Home() {
           signal: newController.signal
         });
 
-        if (!response.ok) throw new Error('Failed to get response');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to get response');
+        }
 
         const reader = response.body?.getReader();
         if (!reader) throw new Error('No reader available');
@@ -365,36 +368,48 @@ export default function Home() {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunks = new TextDecoder()
-            .decode(value)
-            .split('\n')
-            .filter(Boolean)
-            .map(chunk => JSON.parse(chunk));
+          const text = new TextDecoder().decode(value);
+          const lines = text.split('\n').filter(Boolean);
 
-          for (const chunk of chunks) {
-            setMessages(prev => {
-              const newMessages = [...prev];
-              const lastMessage = newMessages[newMessages.length - 1];
-              if (lastMessage && !lastMessage.isUser) {
-                lastMessage.thinking = chunk.thinking;
-                lastMessage.text = formatContent(chunk.response);
-              }
-              return newMessages;
-            });
-
-            if (chunk.done) {
-              setIsThinking(false);
-              // Final save after completion
+          for (const line of lines) {
+            try {
+              const chunk = JSON.parse(line);
               setMessages(prev => {
-                saveCurrentChat(prev);
-                return prev;
+                const newMessages = [...prev];
+                const lastMessage = newMessages[newMessages.length - 1];
+                if (lastMessage && !lastMessage.isUser) {
+                  lastMessage.thinking = chunk.thinking;
+                  lastMessage.text = formatContent(chunk.response);
+                }
+                return newMessages;
               });
+
+              if (chunk.done) {
+                setIsThinking(false);
+                setMessages(prev => {
+                  saveCurrentChat(prev);
+                  return prev;
+                });
+              }
+            } catch (jsonError) {
+              console.warn('Error parsing chunk:', jsonError);
+              // Continue processing other chunks if one fails
+              continue;
             }
           }
         }
       } catch (err) {
         console.error('Error during chat:', err);
-        setMessages(prev => prev.filter(msg => msg.id !== 'initial'));
+        // Add error message to chat
+        setMessages(prev => [
+          ...prev,
+          {
+            id: generateId(),
+            text: err instanceof Error ? err.message : 'An error occurred. Please ensure Ollama is running.',
+            isUser: false,
+            timestamp: Date.now()
+          }
+        ]);
       } finally {
         setController(null);
         setIsLoading(false);

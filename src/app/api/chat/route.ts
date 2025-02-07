@@ -2,11 +2,33 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+async function checkOllamaConnection() {
+  try {
+    const response = await fetch('http://localhost:11434/api/tags', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return response.ok;
+  } catch {
+    // Error parameter removed since it's not used
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
   const { signal } = req;
 
   try {
+    // Check Ollama connection first
+    const isOllamaRunning = await checkOllamaConnection();
+    if (!isOllamaRunning) {
+      return NextResponse.json(
+        { error: 'Ollama server is not running. Please start Ollama and try again.' },
+        { status: 503 }
+      );
+    }
+
     const { message, context, model } = await req.json();
 
     // Start the stream
@@ -29,7 +51,7 @@ export async function POST(req: Request) {
           });
 
           if (!response.ok) {
-            throw new Error('Ollama API error');
+            throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
           }
 
           const reader = response.body?.getReader();
@@ -90,8 +112,14 @@ export async function POST(req: Request) {
             }) + '\n'
           ));
         } catch (error) {
-          console.error('Stream error:', error);
-          controller.error(error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          controller.enqueue(encoder.encode(
+            JSON.stringify({
+              error: errorMessage,
+              done: true
+            }) + '\n'
+          ));
+          controller.close();
         } finally {
           controller.close();
         }
@@ -102,7 +130,10 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('API error:', error);
     return NextResponse.json(
-      { error: 'Failed to process request' }, 
+      { 
+        error: error instanceof Error ? error.message : 'Failed to process request',
+        details: 'Please ensure Ollama is running on http://localhost:11434'
+      },
       { status: 500 }
     );
   }
