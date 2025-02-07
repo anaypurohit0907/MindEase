@@ -29,7 +29,6 @@ export default function ChatSidebar({ currentChatId, onChatSelect, onNewChat, on
     let mounted = true;
 
     const loadChats = () => {
-      // Prevent concurrent loads
       if (loadingRef.current) return;
       loadingRef.current = true;
 
@@ -40,12 +39,18 @@ export default function ChatSidebar({ currentChatId, onChatSelect, onNewChat, on
           return;
         }
 
-        const parsedChats = JSON.parse(storedChats);
+        const parsedChats = JSON.parse(storedChats) as ChatSession[];
+        
+        // Type-safe array operations
         const uniqueChats = Array.from(
-          new Map(parsedChats.map((chat: ChatSession) => [chat.id, chat]))
-        ).map(([_, chat]) => chat as ChatSession);
+          new Map(
+            parsedChats.map((chat) => [chat.id, chat])
+          ).values()
+        );
 
-        const sortedChats = uniqueChats.sort((a, b) => b.timestamp - a.timestamp);
+        const sortedChats = [...uniqueChats].sort(
+          (a: ChatSession, b: ChatSession) => b.timestamp - a.timestamp
+        );
 
         if (mounted) {
           setChats(sortedChats);
@@ -69,12 +74,17 @@ export default function ChatSidebar({ currentChatId, onChatSelect, onNewChat, on
     };
   }, []);
 
-  // Add debounce helper function
-  function debounce(fn: Function, ms: number) {
+  // Improved debounce helper with proper typing
+  function debounce<T extends (...args: unknown[]) => void>(
+    fn: T,
+    delay: number
+  ): (...args: Parameters<T>) => void {
     let timeoutId: NodeJS.Timeout;
-    return function (...args: any[]) {
+    return (...args) => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => fn.apply(null, args), ms);
+      timeoutId = setTimeout(() => {
+        fn(...args);
+      }, delay);
     };
   }
 

@@ -50,10 +50,10 @@ export function ChatList({ currentChatId, onChatSelect, onDeleteChat }: ChatList
         const stored = localStorage.getItem('chatSessions');
         if (stored) {
           const sessions = JSON.parse(stored);
-          // Deduplicate chats based on ID
+          // Deduplicate chats based on ID and get values directly
           const uniqueChats = Array.from(
-            new Map(sessions.map((chat: ChatSession) => [chat.id, chat]))
-          ).map(([_, chat]) => chat as ChatSession);
+            new Map(sessions.map((chat: ChatSession) => [chat.id, chat])).values()
+          ) as ChatSession[];
           
           setChats(uniqueChats.sort((a, b) => b.timestamp - a.timestamp));
         }
@@ -77,12 +77,15 @@ export function ChatList({ currentChatId, onChatSelect, onDeleteChat }: ChatList
     };
   }, []);
 
-  // Add debounce helper
-  function debounce(fn: Function, ms: number) {
+  // Improved debounce helper with proper types
+  function debounce<T extends (...args: never[]) => void>(
+    fn: T,
+    ms: number
+  ): (...args: Parameters<T>) => void {
     let timeoutId: NodeJS.Timeout;
-    return function (...args: any[]) {
+    return (...args) => {
       clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => fn.apply(null, args), ms);
+      timeoutId = setTimeout(() => fn(...args), ms);
     };
   }
 

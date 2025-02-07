@@ -1,12 +1,11 @@
 import ReactMarkdown from 'react-markdown';
 import { Message } from "@/types";
-import { ThinkingProcess } from "@/components/ThinkingProcess";
 import { useState, useEffect } from 'react';
-import { LoaderDots } from './LoaderDots';
 import { Spinner } from './Spinner';
+import { RefreshCw } from 'lucide-react';
 import CodeBlock from './CodeBlock';
 import { InlineMath, BlockMath } from 'react-katex';
-import { RefreshCw } from 'lucide-react';
+import type { Components } from 'react-markdown';
 
 interface MessageBubbleProps {
   message: Message;
@@ -17,20 +16,11 @@ interface MessageBubbleProps {
   showResend?: boolean;
 }
 
-export function MessageBubble({ 
-  message, 
-  isThinking, 
-  isLatest, 
-  hideThinking,
-  onResend,
-  showResend 
-}: MessageBubbleProps) {
+export function MessageBubble({ message, isThinking, isLatest, hideThinking, onResend, showResend }: MessageBubbleProps) {
   const [isThinkingOpen, setIsThinkingOpen] = useState(() => {
     try {
       if (typeof window !== 'undefined') {
-        // Use a global thinking state instead of per-message
         const savedGlobalState = localStorage.getItem('thinking-state-global');
-        // Default to true if not set
         return savedGlobalState === null ? true : JSON.parse(savedGlobalState);
       }
       return true;
@@ -39,7 +29,6 @@ export function MessageBubble({
     }
   });
 
-  // Save thinking state globally when changed
   useEffect(() => {
     try {
       localStorage.setItem('thinking-state-global', JSON.stringify(isThinkingOpen));
@@ -49,8 +38,68 @@ export function MessageBubble({
   }, [isThinkingOpen]);
 
   const messageContent = getMessageContent(message.text);
-  // Update how we determine if there's thinking content
   const hasThinking = Boolean(messageContent.thinking || message.thinking);
+
+  const markdownComponents: Components = {
+    code(props) {
+      const { className, children, ...rest } = props;
+      const match = /language-(\w+)/.exec(className || '');
+      if (match) {
+        return (
+          <CodeBlock
+            language={match[1]}
+            value={String(children).trim()}
+          />
+        );
+      }
+      return (
+        <code className="bg-zinc-900/50 px-1.5 py-0.5 rounded text-sm font-mono" {...rest}>
+          {children}
+        </code>
+      );
+    },
+    p(props) {
+      const { children } = props;
+      if (typeof children === 'string') {
+        // Improved math pattern matching
+        const parts = children.split(/(\\\[.*?\\\]|\\\(.*?\\\))/g);
+        return (
+          <p className="mb-4 last:mb-0">
+            {parts.map((part, i) => {
+              if (part.startsWith('\\[') && part.endsWith('\\]')) {
+                // Display math
+                const math = part.slice(2, -2)
+                  .replace(/\\frac/g, '\\frac ')  // Add space after frac
+                  .replace(/\\text/g, '\\text ')  // Add space after text
+                  .replace(/\s+/g, ' ')          // Normalize spaces
+                  .trim();
+                return <BlockMath key={i}>{math}</BlockMath>;
+              }
+              if (part.startsWith('\\(') && part.endsWith('\\)')) {
+                // Inline math
+                const math = part.slice(2, -2)
+                  .replace(/\\frac/g, '\\frac ')
+                  .replace(/\\text/g, '\\text ')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                return <InlineMath key={i}>{math}</InlineMath>;
+              }
+              return part;
+            })}
+          </p>
+        );
+      }
+      return <p className="mb-4 last:mb-0">{children}</p>;
+    },
+    blockquote(props) {
+      const { children } = props;
+      if (typeof children === 'string' && children.startsWith('$$') && children.endsWith('$$')) {
+        const math = children.slice(2, -2);
+        return <BlockMath>{math}</BlockMath>;
+      }
+      return <blockquote>{children}</blockquote>;
+    }
+  };
 
   if (message.isUser) {
     return (
@@ -124,27 +173,7 @@ export function MessageBubble({
             <div className="bg-zinc-800/50 border border-zinc-700/50 px-4 py-3 rounded-2xl animate-in slide-in-from-top-2">
               <ReactMarkdown
                 className="prose dark:prose-invert prose-sm max-w-none text-zinc-400 italic"
-                components={{
-                  code({ node, inline, className, children, ...props }) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    if (!inline && match) {
-                      return (
-                        <CodeBlock
-                          language={match[1]}
-                          value={String(children).trim()}
-                        />
-                      );
-                    }
-                    return (
-                      <code className="bg-zinc-900/50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  p: ({ children }) => (
-                    <p className="mb-2 last:mb-0">{children}</p>
-                  )
-                }}
+                components={markdownComponents}
               >
                 {messageContent.thinking || message.thinking}
               </ReactMarkdown>
@@ -157,51 +186,7 @@ export function MessageBubble({
         <div className="max-w-[85%] sm:max-w-[75%]">
           <ReactMarkdown
             className="prose dark:prose-invert prose-sm max-w-none text-zinc-100"
-            components={{
-              code({ node, inline, className, children, ...props }) {
-                const match = /language-(\w+)/.exec(className || '');
-                if (!inline && match) {
-                  return (
-                    <CodeBlock
-                      language={match[1]}
-                      value={String(children).trim()}
-                    />
-                  );
-                }
-                return (
-                  <code className="bg-zinc-900/50 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>
-                    {children}
-                  </code>
-                );
-              },
-              // Add math rendering
-              p: ({children}) => {
-                if (typeof children === 'string') {
-                  // Handle inline math
-                  const parts = children.split(/(\$.*?\$)/g);
-                  return (
-                    <p className="mb-4 last:mb-0">
-                      {parts.map((part, i) => {
-                        if (part.startsWith('$') && part.endsWith('$')) {
-                          const math = part.slice(1, -1);
-                          return <InlineMath key={i}>{math}</InlineMath>;
-                        }
-                        return part;
-                      })}
-                    </p>
-                  );
-                }
-                return <p className="mb-4 last:mb-0">{children}</p>;
-              },
-              // Handle block math
-              blockquote: ({children}) => {
-                if (typeof children === 'string' && children.startsWith('$$') && children.endsWith('$$')) {
-                  const math = children.slice(2, -2);
-                  return <BlockMath>{math}</BlockMath>;
-                }
-                return <blockquote>{children}</blockquote>;
-              }
-            }}
+            components={markdownComponents}
           >
             {messageContent.response}
           </ReactMarkdown>
@@ -212,9 +197,10 @@ export function MessageBubble({
 }
 
 const getMessageContent = (text: string) => {
-  const thinkMatch = text.match(/<think>(.*?)<\/think>/s);
+  // Update regex to not use s flag
+  const thinkMatch = text.match(/<think>([^]*?)<\/think>/);
   const thinkContent = thinkMatch ? thinkMatch[1].trim() : "";
-  const responseContent = text.replace(/<think>.*?<\/think>/s, '').trim();
+  const responseContent = text.replace(/<think>[^]*?<\/think>/, '').trim();
 
   return {
     thinking: thinkContent,

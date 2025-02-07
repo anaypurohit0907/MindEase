@@ -12,6 +12,14 @@ interface ModelSelectorProps {
   onModelChange: (model: string) => void;
 }
 
+interface OllamaModel {
+  name: string;
+  // Add other properties if needed
+  size?: number;
+  digest?: string;
+  modified_at?: string;
+}
+
 export default function ModelSelector({ currentModel, onModelChange }: ModelSelectorProps) {
   const [models, setModels] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +29,7 @@ export default function ModelSelector({ currentModel, onModelChange }: ModelSele
       try {
         const response = await fetch('http://localhost:11434/api/tags');
         const data = await response.json();
-        setModels(data.models.map((m: any) => m.name));
+        setModels(data.models.map((m: OllamaModel) => m.name));
       } catch (error) {
         console.error('Failed to fetch models:', error);
       } finally {

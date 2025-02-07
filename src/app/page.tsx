@@ -22,38 +22,28 @@ interface ChatSession {
 }
 
 export default function Home() {
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      id: 'initial',
-      text: "What's on your mind?", 
-      isUser: false, 
-      timestamp: Date.now() 
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => [{
+    id: 'initial',
+    text: "What's on your mind?",
+    isUser: false,
+    timestamp: Date.now()
+  }]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [controller, setController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState("deepseek-r1:1.5b");
   const [hideThinking, setHideThinking] = useState(false);
 
-  // Remove unused state
-  const [currentResponse] = useState("");
-  
-  // More robust ID generator
+  // Remove unused states and functions
   const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const scrollToTop = () => {
-    containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -64,7 +54,6 @@ export default function Home() {
           const chats: ChatSession[] = JSON.parse(storedChats);
           const currentChat = chats.find(c => c.id === currentChatId);
           if (currentChat) {
-            // Don't load empty chats, instead reset to initial state
             if (currentChat.messages.length === 0) {
               setCurrentChatId(null);
               setMessages([{ 
@@ -78,15 +67,6 @@ export default function Home() {
             setMessages(currentChat.messages);
           }
         }
-      } else if (!messages.some(msg => msg.id !== 'initial')) {
-        // If current chat is empty (only has initial message), keep it
-        // instead of creating a new one
-        setMessages([{ 
-          id: 'initial',
-          text: "What's on your mind?", 
-          isUser: false,
-          timestamp: Date.now()
-        }]);
       }
     };
 
@@ -104,7 +84,8 @@ export default function Home() {
     if (!container) return;
 
     const handleScroll = () => {
-      setShowScrollTop(container.scrollTop > 500);
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      setShouldAutoScroll(scrollHeight - scrollTop - clientHeight < 100);
     };
 
     container.addEventListener('scroll', handleScroll);
@@ -135,7 +116,7 @@ export default function Home() {
   };
 
   // Single source of truth for saving chats
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSaveRef = useRef<string>('');
 
   const saveCurrentChat = useCallback((newMessages: Message[]) => {
@@ -159,7 +140,7 @@ export default function Home() {
     // Debounce save operation
     saveTimeoutRef.current = setTimeout(() => {
       try {
-        const existingChats = JSON.parse(localStorage.getItem('chatSessions') || '[]');
+        const existingChats = JSON.parse(localStorage.getItem('chatSessions') || '[]') as ChatSession[];
         
         // Filter out empty, duplicate, and "New Chat" titled chats
         const validChats = Array.from(
@@ -261,12 +242,10 @@ export default function Home() {
   const handleDeleteChat = async (chatId: string) => {
     try {
       const storedChats = JSON.parse(localStorage.getItem('chatSessions') || '[]');
-      const updatedChats = storedChats.filter((chat: any) => chat.id !== chatId);
+      const updatedChats = storedChats.filter((chat: ChatSession) => chat.id !== chatId);
       
-      // Update storage first
       await localStorage.setItem('chatSessions', JSON.stringify(updatedChats));
       
-      // Then update UI
       if (currentChatId === chatId) {
         setCurrentChatId(null);
         setMessages([{ 
@@ -277,10 +256,9 @@ export default function Home() {
         }]);
       }
       
-      // Force storage event to update sidebar
       window.dispatchEvent(new Event('storage'));
-    } catch (error) {
-      console.error('Error deleting chat:', error);
+    } catch (err) {
+      console.error('Error deleting chat:', err);
     }
   };
 
@@ -414,10 +392,9 @@ export default function Home() {
             }
           }
         }
-      } catch (error) {
-        // In case of error, don't bring back the initial message
+      } catch (err) {
+        console.error('Error during chat:', err);
         setMessages(prev => prev.filter(msg => msg.id !== 'initial'));
-        // ...existing error handling...
       } finally {
         setController(null);
         setIsLoading(false);
@@ -426,15 +403,12 @@ export default function Home() {
     }
   };
 
-  const forceStorageUpdate = () => {
-    window.dispatchEvent(new Event('storage'));
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  // Define handleScroll function before using it
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
     setShouldAutoScroll(isNearBottom);
-  };
+  }, []);
 
   // Clean up timeout on unmount
   useEffect(() => {

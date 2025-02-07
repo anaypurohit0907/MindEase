@@ -1,13 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Settings2, SendHorizontal } from "lucide-react";
-import { useState, useRef, useEffect } from 'react';
+import { SendHorizontal } from "lucide-react";
+import { useRef, useEffect } from 'react';
 import ModelSelector from './ModelSelector';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -16,7 +9,7 @@ interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: (message?: string) => void;
   onStopGeneration: () => void;
   selectedModel: string;
   onModelChange: (model: string) => void;
@@ -39,9 +32,9 @@ export function ChatInput({
 
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = '45px'; // Reduced from 60px
+      textareaRef.current.style.height = '45px';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const newHeight = Math.min(Math.max(scrollHeight, 45), 200); // Changed min height
+      const newHeight = Math.min(Math.max(scrollHeight, 45), 200);
       textareaRef.current.style.height = `${newHeight}px`;
     }
   }, [input]);
@@ -53,17 +46,26 @@ export function ChatInput({
     }
   };
 
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isLoading) {
+      onStopGeneration();
+    } else {
+      onSubmit();
+    }
+  };
+
   return (
     <div className="absolute inset-x-6 bottom-6">
       <div className="relative max-w-3xl mx-auto rounded-xl bg-zinc-800/80 backdrop-blur-xl shadow-[0_0_15px_rgba(0,0,0,0.3)] border border-zinc-700/50">
-        <div className="min-h-[45px] w-full"> {/* Reduced from 60px */}
+        <div className="min-h-[45px] w-full">
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Send a message..."
-            className="w-full resize-none rounded-t-xl bg-transparent px-4 pt-2.5 pb-2 text-sm focus:outline-none focus:ring-0 scrollbar-thin" // Adjusted padding
+            className="w-full resize-none rounded-t-xl bg-transparent px-4 pt-2.5 pb-2 text-sm focus:outline-none focus:ring-0 scrollbar-thin"
             style={{
               height: '30px',
               minHeight: '30px',
@@ -73,7 +75,7 @@ export function ChatInput({
           />
         </div>
 
-        <div className="flex items-center justify-between py-2 px-3 border-t border-zinc-700/50"> {/* Reduced padding */}
+        <div className="flex items-center justify-between py-2 px-3 border-t border-zinc-700/50">
           <div className="flex items-center gap-4">
             <ModelSelector
               currentModel={selectedModel}
@@ -90,12 +92,12 @@ export function ChatInput({
                 htmlFor="hide-thinking"
                 className="text-xs font-medium text-zinc-400 select-none"
               >
-                Hide thinking
+                Hide thinking (For Reasoning Models)
               </Label>
             </div>
           </div>
           <Button
-            onClick={isLoading ? onStopGeneration : onSubmit}
+            onClick={handleButtonClick}
             disabled={!input.trim() && !isLoading}
             variant="ghost"
             size="icon"
