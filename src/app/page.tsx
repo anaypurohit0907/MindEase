@@ -108,8 +108,16 @@ export default function Home() {
   };
 
   const formatConversationHistory = (messages: Message[]) => {
-    // Filter out the initial greeting message
     const relevantMessages = messages.filter(msg => msg.id !== 'initial');
+    
+    if (selectedModel.endsWith('-api')) {
+      // Format messages for API models with proper role labels
+      return relevantMessages
+        .map(msg => `${msg.isUser ? 'User' : 'Assistant'}: ${msg.text}`)
+        .join('\n\n');
+    }
+
+    // Keep existing Ollama format
     return relevantMessages
       .map(msg => `${msg.isUser ? 'Human' : 'Assistant'}: ${msg.text}`)
       .join('\n\n');
@@ -176,8 +184,8 @@ export default function Home() {
         requestAnimationFrame(() => {
           window.dispatchEvent(new CustomEvent('chatsUpdated'));
         });
-      } catch (error: unknown) {
-        console.error('Error saving chat:', error);
+      } catch {  // Remove the unused '_' parameter completely
+        console.error('Error saving chat');
       }
     }, 2000);
     
@@ -262,150 +270,164 @@ export default function Home() {
     }
   };
 
-  // Replace the formatEquation function with a simpler content formatter
-  const formatContent = (text: string) => {
-    return text
-      // Format numbered lists with proper spacing
-      .replace(/(\d+\.)\s+/g, '\n$1 ')
-      
-      // Format basic integrals and mathematical expressions
-      .replace(/\[([^\]]+)\]/g, (_, equation) => {
-        // Clean up the equation
-        return equation
-          .replace(/\\int/g, '∫')  // Replace integral symbol
-          .replace(/\\frac{([^}]+)}{([^}]+)}/g, '$1/$2')  // Convert fractions to division
-          .replace(/\\quad/g, '  ')  // Replace quad with spaces
-          .replace(/\\neq/g, '≠')  // Not equal symbol
-          .replace(/\\ln/g, 'ln')  // Natural log
-          .replace(/dx/g, ' dx')   // Add space before dx
-          .replace(/du/g, ' du')   // Add space before du
-          .replace(/[{}\\]/g, '')  // Remove LaTeX artifacts
-          .trim();
-      })
-      
-      // Handle special math symbols
-      .replace(/\(([^)]+)\)/g, '($1)')  // Keep parentheses clean
-      .replace(/\|([^|]+)\|/g, '|$1|')  // Keep absolute value symbols
-      
-      // Handle code output blocks
-      .replace(
-        /When you run this program, it will output:([\s\S]+?)(?=\n\n|$)/g,
-        (_, output) => `\nOutput:\n\`\`\`\n${output.trim()}\n\`\`\`\n`
-      )
-
-      // Clean up multiple spaces and lines while preserving intentional spacing
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-  };
-
   const handleSubmit = async (messageToSend?: string | null) => {
-    // Fix message text handling
-    const messageText = typeof messageToSend === 'string' 
-      ? messageToSend 
-      : input;
+    const messageText = typeof messageToSend === 'string' ? messageToSend : input;
 
     if (messageText.trim() && !isLoading) {
       setIsLoading(true);
       setIsThinking(true);
 
-      const newController = new AbortController();
-      setController(newController);
-
-      // Always filter out initial message before adding new ones
-      const currentMessages = messages.filter(msg => msg.id !== 'initial');
-      
-      const userMessage = { 
-        id: generateId(),
-        text: messageText, 
-        isUser: true, 
-        timestamp: Date.now() 
-      };
-
-      // Set messages without the initial message
-      const updatedMessages = [...currentMessages, userMessage];
-      setMessages(updatedMessages);
-      setInput("");
-
       try {
-        // Use the filtered messages for context
-        const recentMessages = updatedMessages.slice(-10);
-        const conversationHistory = formatConversationHistory(recentMessages);
-
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            message: messageText,
-            context: conversationHistory,
-            model: selectedModel
-          }),
-          signal: newController.signal
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to get response');
-        }
-
-        const reader = response.body?.getReader();
-        if (!reader) throw new Error('No reader available');
-
-        // Add assistant message
-        const assistantMessage = { 
-          id: generateId(),
-          text: '', 
-          thinking: '', 
-          isUser: false 
-        };
-        
-        const messagesWithAssistant = [...updatedMessages, assistantMessage];
-        setMessages(messagesWithAssistant);
-        
-        // Initial save
-        saveCurrentChat(messagesWithAssistant);
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const text = new TextDecoder().decode(value);
-          const lines = text.split('\n').filter(Boolean);
-
-          for (const line of lines) {
-            try {
-              const chunk = JSON.parse(line);
-              setMessages(prev => {
-                const newMessages = [...prev];
-                const lastMessage = newMessages[newMessages.length - 1];
-                if (lastMessage && !lastMessage.isUser) {
-                  lastMessage.thinking = chunk.thinking;
-                  lastMessage.text = formatContent(chunk.response);
-                }
-                return newMessages;
-              });
-
-              if (chunk.done) {
-                setIsThinking(false);
-                setMessages(prev => {
-                  saveCurrentChat(prev);
-                  return prev;
-                });
-              }
-            } catch (jsonError) {
-              console.warn('Error parsing chunk:', jsonError);
-              // Continue processing other chunks if one fails
-              continue;
+        // Check if Ollama is running for local models
+        if (!selectedModel.endsWith('-api')) {
+          try {
+            const checkResponse = await fetch('http://localhost:11434/api/tags');
+            if (!checkResponse.ok) {
+              throw new Error('Ollama is not running. Please start Ollama and try again.');
             }
+          } catch {  // Remove the unused 'error' parameter here
+            throw new Error('Could not connect to Ollama. Please ensure it is running and try again.');
           }
         }
-      } catch (err) {
-        console.error('Error during chat:', err);
-        // Add error message to chat
+
+        const newController = new AbortController();
+        setController(newController);
+
+        // Always filter out initial message before adding new ones
+        const currentMessages = messages.filter(msg => msg.id !== 'initial');
+        
+        const userMessage = { 
+          id: generateId(),
+          text: messageText, 
+          isUser: true, 
+          timestamp: Date.now() 
+        };
+
+        // Set messages without the initial message
+        const updatedMessages = [...currentMessages, userMessage];
+        setMessages(updatedMessages);
+        setInput("");
+
+        try {
+          // Use the filtered messages for context
+          const recentMessages = updatedMessages.slice(-10);
+          const conversationHistory = formatConversationHistory(recentMessages);
+
+          // Get API key if using an API model
+          let apiKey = null;
+          if (selectedModel.endsWith('-api')) {
+            const provider = selectedModel.split('-')[0];
+            apiKey = localStorage.getItem(`${provider}ApiKey`);
+            if (!apiKey) {
+              throw new Error(`${provider} API key not found. Please add your API key in the model selector.`);
+            }
+          }
+
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              message: messageText,
+              context: conversationHistory,
+              model: selectedModel,
+              apiKey
+            }),
+            signal: newController.signal
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to get response');
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) throw new Error('No reader available');
+
+          // Add assistant message
+          const assistantMessage = { 
+            id: generateId(),
+            text: '', 
+            thinking: '', 
+            isUser: false 
+          };
+          
+          const messagesWithAssistant = [...updatedMessages, assistantMessage];
+          setMessages(messagesWithAssistant);
+          
+          // Initial save
+          saveCurrentChat(messagesWithAssistant);
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const text = new TextDecoder().decode(value);
+            const lines = text.split('\n').filter(Boolean);
+
+            for (const line of lines) {
+              try {
+                const chunk = JSON.parse(line);
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMessage = newMessages[newMessages.length - 1];
+                  if (lastMessage && !lastMessage.isUser) {
+                    // Keep existing state if new values are undefined
+                    lastMessage.thinking = chunk.thinking ?? lastMessage.thinking ?? '';
+                    lastMessage.text = chunk.response ?? lastMessage.text ?? '';
+                    
+                    // Update thinking state based on chunk
+                    if (chunk.isThinking !== undefined) {
+                      setIsThinking(chunk.isThinking);
+                    }
+                  }
+                  return newMessages;
+                });
+
+                if (chunk.done) {
+                  setIsThinking(false);
+                  // Ensure final state is saved
+                  setMessages(prev => {
+                    const finalMessages = [...prev];
+                    const lastMessage = finalMessages[finalMessages.length - 1];
+                    if (lastMessage && !lastMessage.isUser) {
+                      lastMessage.thinking = chunk.thinking ?? lastMessage.thinking ?? '';
+                      lastMessage.text = chunk.response ?? lastMessage.text ?? '';
+                    }
+                    saveCurrentChat(finalMessages);
+                    return finalMessages;
+                  });
+                }
+              } catch (jsonError) {
+                console.warn('Error parsing chunk:', jsonError);
+                continue;
+              }
+            }
+          }
+        } catch (error) { // Keep error here since we're using it
+          console.error('Error during chat:', error);
+          setMessages(prev => [
+            ...prev,
+            {
+              id: generateId(),
+              text: error instanceof Error ? error.message : 'An error occurred. Please ensure Ollama is running.',
+              isUser: false,
+              timestamp: Date.now()
+            }
+          ]);
+        } finally {
+          setController(null);
+          setIsLoading(false);
+          setIsThinking(false);
+        }
+      } catch (error) { // Change this line to use the error parameter
+        console.error('Error during chat:', error);
         setMessages(prev => [
           ...prev,
           {
             id: generateId(),
-            text: err instanceof Error ? err.message : 'An error occurred. Please ensure Ollama is running.',
+            text: error instanceof Error 
+              ? error.message 
+              : 'Failed to connect to Ollama. Please ensure it is running and the model is downloaded.',
             isUser: false,
             timestamp: Date.now()
           }

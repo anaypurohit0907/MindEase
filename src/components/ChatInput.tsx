@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { SendHorizontal } from "lucide-react";
+import { SendHorizontal, Loader2, Square } from "lucide-react";
 import { useRef, useEffect } from 'react';
 import ModelSelector from './ModelSelector';
 import { Checkbox } from "@/components/ui/checkbox";
@@ -96,21 +96,32 @@ export function ChatInput({
               </Label>
             </div>
           </div>
-          <Button
-            onClick={handleButtonClick}
-            disabled={!input.trim() && !isLoading}
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
-          >
-            {isLoading ? (
-              <svg className="h-4 w-4" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M6 19h12V5H6v14zm5-8h2V9h-2v2z" />
-              </svg>
-            ) : (
-              <SendHorizontal className="h-4 w-4" />
+          <div className="flex gap-2">
+            {isLoading && (
+              <Button
+                onClick={onStopGeneration}
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-lg bg-red-600 hover:bg-red-500 text-white"
+                title="Stop generation"
+              >
+                <Square className="h-4 w-4" />
+              </Button>
             )}
-          </Button>
+            <Button
+              onClick={handleButtonClick}
+              disabled={!input.trim() && !isLoading}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <SendHorizontal className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

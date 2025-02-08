@@ -37,7 +37,8 @@ export function MessageBubble({ message, isThinking, isLatest, hideThinking, onR
     }
   }, [isThinkingOpen]);
 
-  const messageContent = getMessageContent(message.text);
+  const safeText = message?.text || '';
+  const messageContent = getMessageContent(safeText);
   const hasThinking = Boolean(messageContent.thinking || message.thinking);
 
   const markdownComponents: Components = {
@@ -61,21 +62,29 @@ export function MessageBubble({ message, isThinking, isLatest, hideThinking, onR
     p(props) {
       const { children } = props;
       if (typeof children === 'string') {
-        // Replace backslashed integral with direct integral symbol
-        const text = children.replace(/\\∫/g, '∫');
-        const parts = text.split(/(\$.*?\$)/g);
+        // Safely handle text content
+        const text = children?.trim() || '';
         
-        return (
-          <p className="mb-4 last:mb-0">
-            {parts.map((part, i) => {
-              if (part.startsWith('$') && part.endsWith('$')) {
-                const math = part.slice(1, -1).trim();
-                return <InlineMath key={i}>{math}</InlineMath>;
-              }
-              return part;
-            })}
-          </p>
-        );
+        // Skip empty paragraphs
+        if (!text) return null;
+
+        try {
+          const parts = text.split(/(\$.*?\$)/g);
+          return (
+            <p className="mb-4 last:mb-0">
+              {parts.map((part, i) => {
+                if (part?.startsWith('$') && part?.endsWith('$')) {
+                  const math = part.slice(1, -1).trim();
+                  return math ? <InlineMath key={i}>{math}</InlineMath> : null;
+                }
+                return part || null;
+              }).filter(Boolean)}
+            </p>
+          );
+        } catch (error) {
+          console.warn('Error processing markdown:', error);
+          return <p className="mb-4 last:mb-0">{text}</p>;
+        }
       }
       return <p className="mb-4 last:mb-0">{children}</p>;
     },
@@ -185,13 +194,33 @@ export function MessageBubble({ message, isThinking, isLatest, hideThinking, onR
 }
 
 const getMessageContent = (text: string) => {
-  // Update regex to not use s flag
-  const thinkMatch = text.match(/<think>([^]*?)<\/think>/);
-  const thinkContent = thinkMatch ? thinkMatch[1].trim() : "";
-  const responseContent = text.replace(/<think>[^]*?<\/think>/, '').trim();
+  if (!text || typeof text !== 'string') {
+    return {
+      thinking: '',
+      response: ''
+    };
+  }
 
-  return {
-    thinking: thinkContent,
-    response: responseContent
-  };
+  try {
+    let responseContent = text;
+    let thinkContent = '';
+
+    // Only attempt to process think blocks if they exist
+    if (text.includes('<think>')) {
+      const thinkMatch = text.match(/<think>(.*?)<\/think>/s);
+      thinkContent = thinkMatch?.[1]?.trim() || '';
+      responseContent = text.replace(/<think>.*?<\/think>/gs, '').trim();
+    }
+
+    return {
+      thinking: thinkContent,
+      response: responseContent || text // Fallback to original text if empty
+    };
+  } catch (error) {
+    console.warn('Error parsing message content:', error);
+    return {
+      thinking: '',
+      response: text // Return original text on error
+    };
+  }
 };

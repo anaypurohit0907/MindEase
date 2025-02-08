@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Copy, Terminal } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import type { CSSProperties } from 'react';
 
 interface CodeBlockProps {
   language: string;
@@ -18,21 +19,30 @@ export default function CodeBlock({ language, value, output }: CodeBlockProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Customize oneDark theme
-  const customStyle = {
-    ...oneDark,
+  // Fix style type issues
+  const customStyle: { [key: string]: CSSProperties } = {
     'pre[class*="language-"]': {
-      ...oneDark['pre[class*="language-"]'],
       background: 'transparent',
       margin: 0,
       padding: '1rem',
+      whiteSpace: 'pre',
+      tabSize: 4,
+      overflowX: 'auto' as const, // Type assertion for overflow
+      MozTabSize: 4,
     },
     'code[class*="language-"]': {
-      ...oneDark['code[class*="language-"]'],
       fontSize: '0.875rem',
-      lineHeight: '1.7',
+      lineHeight: 1.7,
       fontFamily: 'JetBrains Mono, Menlo, Monaco, Consolas, monospace',
+      whiteSpace: 'pre',
+      tabSize: 4,
+      MozTabSize: 4,
     }
+  };
+
+  const style = {
+    ...oneDark,
+    ...customStyle
   };
 
   return (
@@ -59,19 +69,21 @@ export default function CodeBlock({ language, value, output }: CodeBlockProps) {
           )}
         </button>
       </div>
-      <div className="p-2 bg-transparent">
+      <div className="p-2 bg-transparent overflow-x-auto">
         <SyntaxHighlighter
           language={language.toLowerCase()}
-          style={customStyle}
+          style={style}
           customStyle={{
             fontSize: '14px',
-            lineHeight: '1.7',
+            lineHeight: 1.7,
             margin: 0,
             padding: 0,
             background: 'transparent',
+            whiteSpace: 'pre',
+            tabSize: 4,
           }}
           showLineNumbers
-          wrapLongLines
+          wrapLongLines={false}
         >
           {value}
         </SyntaxHighlighter>
