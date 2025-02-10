@@ -5,30 +5,38 @@ R-Chat is a modern chat application built with Next.js that allows users to chat
 <!-- Screenshots -->
 ## Interface
 
-![Interface](https://github.com/user-attachments/assets/88d0ba68-3b08-4a73-a04c-2677b6b66346) 🖥️
+![Interface](https://github.com/user-attachments/assets/88d0ba68-3b08-4a73-a04c-2677b6b66346) 
 
 # Features
 
-- **Switch Between Models:** Easily switch between local and API models.  
-  ![Switch Models](https://github.com/user-attachments/assets/575231c8-a587-4d59-a08c-7b7009d4db81) 🔄
+- **Switch Between Models:** Easily switch between local and API models 🔄
+  
+  ![Switch Models](https://github.com/user-attachments/assets/575231c8-a587-4d59-a08c-7b7009d4db81) 
 
-- **Custom API Models:** Add your own API models effortlessly.  
-  ![Custom API](https://github.com/user-attachments/assets/3212c2c2-ff24-44eb-aeff-957316203261) 🛠️
+- **Custom API Models:** Add your own API models effortlessly 🛠️
+  
+  ![Custom API](https://github.com/user-attachments/assets/3212c2c2-ff24-44eb-aeff-957316203261) 
 
-- **Multiple Providers:** Choose between different providers (more options coming soon!).  
-  ![Providers](https://github.com/user-attachments/assets/24de4110-ac10-4e81-811f-695ca8053175) 🌐
+- **Multiple Providers:** Choose between different providers (more options coming soon!) 🌐
+  
+  ![Providers](https://github.com/user-attachments/assets/24de4110-ac10-4e81-811f-695ca8053175) 
 
-- **Local Chat History:** All chat history is stored locally, ensuring your privacy.  
-  ![Local Chat](https://github.com/user-attachments/assets/5128b698-d60a-4228-b58b-9ce1b9bcc102) 🔒
+- **Local Chat History:** All chat history is stored locally, ensuring your privacy 🔒
+  
+  ![Local Chat](https://github.com/user-attachments/assets/595925df-8329-48b9-9ca6-fcae38abf8df)
+ 
 
-- **Efficient Storage Management:** Monitor and clear chat storage easily.  
-  ![Storage](https://github.com/user-attachments/assets/2b123f6d-6ed9-42b0-b510-15a3829371d0) 🗑️
+- **Efficient Storage Management:** Monitor and clear chat storage easily 🗑️
+  
+  ![Storage](https://github.com/user-attachments/assets/2b123f6d-6ed9-42b0-b510-15a3829371d0) 
 
-- **Dynamic Reasoning:** Enjoy a neat bubble for the thinking process (Reasoning Models).  
-  ![Reasoning Model](https://github.com/user-attachments/assets/12c08cc9-1fa1-44f4-aa7e-825f35d1e624) 💡
+- **Dynamic Reasoning:** Enjoy a neat bubble for the thinking process (Reasoning Models)💡
+  
+  ![Reasoning Model](https://github.com/user-attachments/assets/12c08cc9-1fa1-44f4-aa7e-825f35d1e624) 
 
-- **Toggle Reasoning View:** Prefer a cleaner interface? Hide the reasoning process with a click! 😊  
-  ![Toggle Reasoning](https://github.com/user-attachments/assets/9e193016-f410-494e-9a5b-0d3d18065212) 👀
+- **Toggle Reasoning View:** Prefer a cleaner interface? Hide the reasoning process with a click! 😊
+    
+  ![Toggle Reasoning](https://github.com/user-attachments/assets/9e193016-f410-494e-9a5b-0d3d18065212)
 
 ## Getting Started
 
@@ -48,7 +56,7 @@ R-Chat is a modern chat application built with Next.js that allows users to chat
    # or yarn install
    # or pnpm install
    ```
-3. **Run Local Models:**
+3. **Run Local Models (if you have):**
    > Open a separate terminal and run:
    ```bash
    ollama serve
