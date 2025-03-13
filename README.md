@@ -1,4 +1,4 @@
-# R-Chat 🚀
+# MindEase 🚀
 
 R-Chat is a modern chat application built with Next.js that allows users to chat in real-time, manage multiple chat sessions, and interact with intelligent assistant responses using both local models (via Ollama) and API-based models.
 
