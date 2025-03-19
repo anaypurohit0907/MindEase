@@ -115,7 +115,7 @@ export async function POST(req: Request) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              model: model || "deepseek-r1:1.5b",
+              model: model || "deepseek-r1:1.5b" || "tinyllama",
               prompt: `${context}\n\nHuman: ${message}\n\nAssistant:`,
               stream: true,
               options: {
