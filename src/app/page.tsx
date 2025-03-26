@@ -56,9 +56,9 @@ export default function Home() {
           if (currentChat) {
             if (currentChat.messages.length === 0) {
               setCurrentChatId(null);
-              setMessages([{ 
+              setMessages([{
                 id: 'initial',
-                text: "What's on your mind?", 
+                text: "What's on your mind?",
                 isUser: false,
                 timestamp: Date.now()
               }]);
@@ -109,7 +109,7 @@ export default function Home() {
 
   const formatConversationHistory = (messages: Message[]) => {
     const relevantMessages = messages.filter(msg => msg.id !== 'initial');
-    
+
     if (selectedModel.endsWith('-api')) {
       // Format messages for API models with proper role labels
       return relevantMessages
@@ -129,17 +129,17 @@ export default function Home() {
 
   const saveCurrentChat = useCallback((newMessages: Message[]) => {
     if (!newMessages || newMessages.length === 0) return;
-    
+
     // Don't save if it's only the initial message or empty chat
     const hasRealMessages = newMessages.some(msg => msg.id !== 'initial');
     if (!hasRealMessages) return;
-    
+
     const chatId = currentChatId || `chat-${Date.now()}`;
-    
+
     // Create message hash to check for changes
     const messageHash = JSON.stringify(newMessages);
     if (messageHash === lastSaveRef.current) return;
-    
+
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -149,13 +149,13 @@ export default function Home() {
     saveTimeoutRef.current = setTimeout(() => {
       try {
         const existingChats = JSON.parse(localStorage.getItem('chatSessions') || '[]') as ChatSession[];
-        
+
         // Filter out empty, duplicate, and "New Chat" titled chats
         const validChats = Array.from(
           new Map(
             existingChats
-              .filter((chat: ChatSession) => 
-                chat.messages.some(msg => msg.id !== 'initial') && 
+              .filter((chat: ChatSession) =>
+                chat.messages.some(msg => msg.id !== 'initial') &&
                 chat.title !== 'New Chat'
               )
               .map((chat: ChatSession) => [chat.id, chat])
@@ -175,7 +175,7 @@ export default function Home() {
 
         const otherChats = validChats.filter(chat => chat.id !== chatId);
         localStorage.setItem('chatSessions', JSON.stringify([chatSession, ...otherChats]));
-        
+
         if (!currentChatId) {
           setCurrentChatId(chatId);
         }
@@ -188,7 +188,7 @@ export default function Home() {
         console.error('Error saving chat');
       }
     }, 2000);
-    
+
   }, [currentChatId]);
 
   // Update the storage event listener
@@ -196,7 +196,7 @@ export default function Home() {
     const handleStorage = () => {
       // Reload chats only if needed
       if (!currentChatId) return;
-      
+
       const storedChats = localStorage.getItem('chatSessions');
       if (storedChats) {
         const chats: ChatSession[] = JSON.parse(storedChats);
@@ -217,20 +217,20 @@ export default function Home() {
 
   const handleNewChat = () => {
     const hasConversation = messages.some(msg => msg.id !== 'initial');
-    
+
     if (!hasConversation) {
       // Already on an empty chat, do nothing
       return;
     }
-    
+
     if (messages.length > 1) {
       saveCurrentChat(messages);
     }
-    
+
     setCurrentChatId(null);
-    setMessages([{ 
+    setMessages([{
       id: 'initial',
-      text: "What's on your mind?", 
+      text: "What's on your mind?",
       isUser: false,
       timestamp: Date.now()
     }]);
@@ -251,19 +251,19 @@ export default function Home() {
     try {
       const storedChats = JSON.parse(localStorage.getItem('chatSessions') || '[]');
       const updatedChats = storedChats.filter((chat: ChatSession) => chat.id !== chatId);
-      
+
       await localStorage.setItem('chatSessions', JSON.stringify(updatedChats));
-      
+
       if (currentChatId === chatId) {
         setCurrentChatId(null);
-        setMessages([{ 
+        setMessages([{
           id: generateId(),
-          text: "What's on your mind?", 
+          text: "What's on your mind?",
           isUser: false,
           timestamp: Date.now()
         }]);
       }
-      
+
       window.dispatchEvent(new Event('storage'));
     } catch (err) {
       console.error('Error deleting chat:', err);
@@ -281,7 +281,7 @@ export default function Home() {
         // Check if Ollama is running for local models
         if (!selectedModel.endsWith('-api')) {
           try {
-            const checkResponse = await fetch('http://localhost:11434/api/tags');
+            const checkResponse = await fetch('http://35.173.181.226:11434/api/tags');
             if (!checkResponse.ok) {
               throw new Error('Ollama is not running. Please start Ollama and try again.');
             }
@@ -295,12 +295,12 @@ export default function Home() {
 
         // Always filter out initial message before adding new ones
         const currentMessages = messages.filter(msg => msg.id !== 'initial');
-        
-        const userMessage = { 
+
+        const userMessage = {
           id: generateId(),
-          text: messageText, 
-          isUser: true, 
-          timestamp: Date.now() 
+          text: messageText,
+          isUser: true,
+          timestamp: Date.now()
         };
 
         // Set messages without the initial message
@@ -326,7 +326,7 @@ export default function Home() {
           const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               message: messageText,
               context: conversationHistory,
               model: selectedModel,
@@ -344,16 +344,16 @@ export default function Home() {
           if (!reader) throw new Error('No reader available');
 
           // Add assistant message
-          const assistantMessage = { 
+          const assistantMessage = {
             id: generateId(),
-            text: '', 
-            thinking: '', 
-            isUser: false 
+            text: '',
+            thinking: '',
+            isUser: false
           };
-          
+
           const messagesWithAssistant = [...updatedMessages, assistantMessage];
           setMessages(messagesWithAssistant);
-          
+
           // Initial save
           saveCurrentChat(messagesWithAssistant);
 
@@ -374,7 +374,7 @@ export default function Home() {
                     // Keep existing state if new values are undefined
                     lastMessage.thinking = chunk.thinking ?? lastMessage.thinking ?? '';
                     lastMessage.text = chunk.response ?? lastMessage.text ?? '';
-                    
+
                     // Update thinking state based on chunk
                     if (chunk.isThinking !== undefined) {
                       setIsThinking(chunk.isThinking);
@@ -425,8 +425,8 @@ export default function Home() {
           ...prev,
           {
             id: generateId(),
-            text: error instanceof Error 
-              ? error.message 
+            text: error instanceof Error
+              ? error.message
               : 'Failed to connect to Ollama. Please ensure it is running and the model is downloaded.',
             isUser: false,
             timestamp: Date.now()
@@ -469,7 +469,7 @@ export default function Home() {
         </div>
       </div>
       <main className="flex-1 ml-64 relative">
-        <div 
+        <div
           ref={containerRef}
           className="h-full overflow-y-auto px-6 pt-4 pb-32"
           onScroll={handleScroll}
