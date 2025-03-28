@@ -281,7 +281,7 @@ export default function Home() {
         // Check if Ollama is running for local models
         if (!selectedModel.endsWith('-api')) {
           try {
-            const checkResponse = await fetch('http://35.173.181.226:11434/api/tags');
+            const checkResponse = await fetch('http://localhost:11434/api/tags');
             if (!checkResponse.ok) {
               throw new Error('Ollama is not running. Please start Ollama and try again.');
             }
