@@ -1,3 +1,4 @@
+// API model configurations for different LLM providers
 interface ApiRequestBody {
   contents: Array<{
     parts: Array<{ text: string }>;
@@ -16,7 +17,7 @@ interface ApiResponseData {
   };
 }
 
-interface ApiModelConfig {
+export interface ApiModelConfig {
   url: string;
   headers: (_: string) => Record<string, string>;
   transformRequest: (message: string, context: string) => ApiRequestBody;
@@ -24,25 +25,26 @@ interface ApiModelConfig {
   streamRequest?: boolean;
 }
 
-const API_CONFIGS: Record<string, ApiModelConfig> = {
-  'gemini-api': {
-    url: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=',
+// Define available API models
+export const API_MODELS: Record<string, ApiModelConfig> = {
+  "gemini-api": {
+    // Updated URL for Gemini 2.0 Flash API
+    url: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=",
     headers: () => ({
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     }),
     transformRequest: (message: string, context: string): ApiRequestBody => {
-      // Convert conversation history into proper Gemini format
       const contents = [];
-      
+
       // Add context messages if they exist
       if (context) {
-        const contextMessages = context.split('\n\n');
+        const contextMessages = context.split("\n\n");
         for (const msg of contextMessages) {
-          const [role, text] = msg.split(': ').map(s => s.trim());
+          const [role, text] = msg.split(": ");
           if (role && text) {
             contents.push({
-              parts: [{ text }],
-              role: role.toLowerCase() === 'user' ? 'user' : 'model'
+              parts: [{ text: text.trim() }],
+              role: role.toLowerCase() === "user" ? "user" : "model",
             });
           }
         }
@@ -51,36 +53,26 @@ const API_CONFIGS: Record<string, ApiModelConfig> = {
       // Add the current message
       contents.push({
         parts: [{ text: message }],
-        role: 'user'
+        role: "user",
       });
 
-      console.log('Gemini request:', { contents }); // Debug log
       return { contents };
     },
     transformResponse: (response: ApiResponseData): string => {
-      try {
-        console.log('Raw Gemini response:', JSON.stringify(response, null, 2));
-        
-        // Handle potential error responses
-        if (response?.error) {
-          throw new Error(response.error.message || 'Unknown API error');
-        }
-
-        if (!response?.candidates?.[0]?.content?.parts?.[0]?.text) {
-          throw new Error('Invalid response format from Gemini API');
-        }
-
-        const text = response.candidates[0].content.parts[0].text;
-        return text.trim();
-      } catch (error) {
-        console.error('Error parsing Gemini response:', error);
-        throw error; // Re-throw to handle in the route
+      if (response?.error) {
+        throw new Error(response.error.message || "Unknown API error");
       }
+
+      if (!response?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("Invalid response format from Gemini API");
+      }
+
+      return response.candidates[0].content.parts[0].text.trim();
     },
-    streamRequest: false
-  }
+  },
 };
 
-export const getApiModelConfig = (model: string): ApiModelConfig | null => {
-  return API_CONFIGS[model] || null;
-};
+// Helper function to get model config
+export function getApiModelConfig(modelName: string): ApiModelConfig | null {
+  return API_MODELS[modelName] || null;
+}

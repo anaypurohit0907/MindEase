@@ -1,15 +1,11 @@
-import { Button } from "@/components/ui/button";
-import { SendHorizontal, Loader2, Square } from "lucide-react";
-import { useRef, useEffect } from 'react';
-import ModelSelector from './ModelSelector';
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { Send, Settings, StopCircle, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
-  onSubmit: (message?: string) => void;
+  onSubmit: () => void;
   onStopGeneration: () => void;
   selectedModel: string;
   onModelChange: (model: string) => void;
@@ -26,104 +22,177 @@ export function ChatInput({
   selectedModel,
   onModelChange,
   hideThinking,
-  onHideThinkingChange
+  onHideThinkingChange,
 }: ChatInputProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    onSubmit();
+  };
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '45px';
-      const scrollHeight = textareaRef.current.scrollHeight;
-      const newHeight = Math.min(Math.max(scrollHeight, 45), 200);
-      textareaRef.current.style.height = `${newHeight}px`;
+    const savedGeminiApiKey = localStorage.getItem("geminiApiKey") || "";
+    setGeminiApiKey(savedGeminiApiKey);
+  }, []);
+
+  const handleSaveSettings = () => {
+    localStorage.setItem("geminiApiKey", geminiApiKey);
+    setShowSettings(false);
+  };
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.style.height = "48px";
+      inputRef.current.style.height = `${Math.min(
+        inputRef.current.scrollHeight,
+        200
+      )}px`;
     }
   }, [input]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onSubmit();
-    }
-  };
-
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (isLoading) {
-      onStopGeneration();
-    } else {
-      onSubmit();
-    }
-  };
+  // Close settings modal if Escape key is pressed
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && showSettings) {
+        setShowSettings(false);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [showSettings]);
 
   return (
-    <div className="absolute inset-x-6 bottom-6">
-      <div className="relative max-w-3xl mx-auto rounded-xl bg-zinc-800/80 backdrop-blur-xl shadow-[0_0_15px_rgba(0,0,0,0.3)] border border-zinc-700/50">
-        <div className="min-h-[45px] w-full">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Send a message..."
-            className="w-full resize-none rounded-t-xl bg-transparent px-4 pt-2.5 pb-2 text-sm focus:outline-none focus:ring-0 scrollbar-thin"
-            style={{
-              height: '30px',
-              minHeight: '30px',
-              maxHeight: '200px',
-              overflowY: 'auto'
-            }}
-          />
+    <>
+      <form
+        onSubmit={handleSubmit}
+        className="relative bg-zinc-800/80 backdrop-blur border border-zinc-700 rounded-xl mb-8 mx-4 max-w-3xl"
+      >
+        <textarea
+          ref={inputRef}
+          rows={1}
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          placeholder="Type your message..."
+          disabled={isLoading}
+          className="min-h-[48px] max-h-[200px] w-full pl-4 pr-24 py-3 bg-transparent text-white focus:outline-none resize-none"
+          style={{ overflowY: input ? "auto" : "hidden" }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+              e.preventDefault();
+              if (input.trim()) onSubmit();
+            }
+          }}
+        />
+        <div className="absolute right-2 bottom-2 flex items-center gap-2">
+          <button
+            type="button"
+            className="text-zinc-400 hover:text-white focus:outline-none"
+            onClick={() => setShowSettings(true)}
+          >
+            <Settings size={18} />
+          </button>
+          {!isLoading ? (
+            <button
+              type="submit"
+              className="bg-blue-600 text-white p-1.5 rounded-md hover:bg-blue-700 focus:outline-none disabled:opacity-50 disabled:pointer-events-none"
+              disabled={!input.trim()}
+            >
+              <Send size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onStopGeneration}
+              className="bg-red-600 text-white p-1.5 rounded-md hover:bg-red-700 focus:outline-none"
+            >
+              <StopCircle size={16} />
+            </button>
+          )}
         </div>
+      </form>
 
-        <div className="flex items-center justify-between py-2 px-3 border-t border-zinc-700/50">
-          <div className="flex items-center gap-4">
-            <ModelSelector
-              currentModel={selectedModel}
-              onModelChange={onModelChange}
-            />
-            <div className="flex items-center space-x-2 border-l border-zinc-700/50 pl-4">
-              <Checkbox
-                id="hide-thinking"
-                checked={hideThinking}
-                onCheckedChange={(checked) => onHideThinkingChange(checked as boolean)}
-                className="h-4 w-4 border-zinc-700 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
-              />
-              <Label
-                htmlFor="hide-thinking"
-                className="text-xs font-medium text-zinc-400 select-none"
+      {/* Simple modal dialog without external library */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black bg-opacity-70 flex items-center justify-center p-4">
+          <div className="relative bg-zinc-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-white">Settings</h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="text-zinc-400 hover:text-white"
               >
-                Hide thinking (For Reasoning Models)
-              </Label>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <label className="block mb-2 text-sm font-medium text-white">
+                Model
+              </label>
+              <select
+                value={selectedModel}
+                onChange={(e) => onModelChange(e.target.value)}
+                className="bg-zinc-700 border border-zinc-600 text-white text-sm rounded-lg block w-full p-2.5 focus:border-blue-500"
+              >
+                <option value="gemini-api">Gemini Pro</option>
+              </select>
+            </div>
+
+            <div className="mb-6">
+              <label className="block mb-2 text-sm font-medium text-white">
+                Gemini API Key
+              </label>
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => setGeminiApiKey(e.target.value)}
+                placeholder="Enter your Gemini API key"
+                className="bg-zinc-700 border border-zinc-600 text-white text-sm rounded-lg block w-full p-2.5 focus:border-blue-500"
+              />
+              <p className="mt-2 text-xs text-zinc-400">
+                This will override the key in your .env file. Leave empty to use
+                the key from your environment.
+              </p>
+            </div>
+
+            <div className="flex items-center mb-6">
+              <input
+                type="checkbox"
+                id="hideThinking"
+                checked={hideThinking}
+                onChange={(e) => onHideThinkingChange(e.target.checked)}
+                className="w-4 h-4 bg-zinc-700 border-zinc-600 rounded focus:ring-blue-600"
+              />
+              <label
+                htmlFor="hideThinking"
+                className="ml-2 text-sm font-medium text-white"
+              >
+                Hide thinking process
+              </label>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-zinc-700 rounded-md hover:bg-zinc-600 focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none"
+              >
+                Save
+              </button>
             </div>
           </div>
-          <div className="flex gap-2">
-            {isLoading && (
-              <Button
-                onClick={onStopGeneration}
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-lg bg-red-600 hover:bg-red-500 text-white"
-                title="Stop generation"
-              >
-                <Square className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              onClick={handleButtonClick}
-              disabled={!input.trim() && !isLoading}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 rounded-lg bg-blue-600 hover:bg-blue-500 text-white"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <SendHorizontal className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
