@@ -1,8 +1,3 @@
-import {
-  apiRequestDuration,
-  apiRequestsCounter,
-  tokensProcessedCounter
-} from "@/lib/metrics";
 import { NextResponse } from "next/server";
 import { register } from "prom-client";
 
@@ -14,11 +9,11 @@ export async function GET() {
     const metrics = await register.metrics();
     
     // Add extra debug information to verify metrics are being collected
-    console.log("Metrics being served:", {
-      apiRequestsCount: apiRequestsCounter.hashMap,
-      apiRequestDuration: apiRequestDuration.hashMap,
-      tokensProcessed: tokensProcessedCounter.hashMap
-    });
+//    console.log("Metrics being served:", {
+ //     apiRequestsCount: apiRequestsCounter.hashMap,
+   //   apiRequestDuration: apiRequestDuration.hashMap,
+     // tokensProcessed: tokensProcessedCounter.hashMap
+   // });
     
     // Return metrics with proper content type for Prometheus
     return new Response(metrics, {
