@@ -1,0 +1,25 @@
+# Complete prometheus.yml for monitoring Next.js app
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Test metrics job (existing)
+  - job_name: 'test-metrics'
+    static_configs:
+      - targets: ['test-metrics']
+    metrics_path: '/metrics'
+    
+  # Next.js application metrics job
+  - job_name: 'nextjs-app'
+    static_configs:
+      - targets: ['host.docker.internal:3000']  # Access host from Docker container
+    metrics_path: '/api/metrics'
+    # Adjust scrape timeout if needed for larger metrics collections
+    scrape_timeout: 5s
+   

@@ -1,0 +1,4 @@
+vercel_api_token = "your_vercel_api_token"
+github_repo      = "yourusername/mindease"
+mongodb_uri      = "mongodb+srv://username:password@cluster.mongodb.net/mindease"
+# vercel_team_id   = "team_xxx" # Optional: Add if you're part of a team

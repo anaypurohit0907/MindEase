@@ -1,0 +1,57 @@
+---
+- name: Provision Infrastructure with Terraform
+  hosts: local
+  vars:
+    terraform_dir: /home/anay/Desktop/MindEase/terraform
+    # Using environment variables directly - no need to redefine them
+
+  tasks:
+    - name: Check if Terraform is installed
+      command: terraform --version
+      register: terraform_version
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install Terraform if not present
+      block:
+        - name: Add HashiCorp GPG key
+          apt_key:
+            url: https://apt.releases.hashicorp.com/gpg
+            state: present
+          become: yes
+          when: terraform_version.rc != 0
+
+        - name: Add HashiCorp repository
+          apt_repository:
+            repo: deb [arch=amd64] https://apt.releases.hashicorp.com focal main
+            state: present
+            filename: hashicorp
+          become: yes
+          when: terraform_version.rc != 0
+
+        - name: Install Terraform
+          apt:
+            name: terraform
+            state: present
+            update_cache: yes
+          become: yes
+          when: terraform_version.rc != 0
+
+    - name: Initialize Terraform
+      command: terraform init
+      args:
+        chdir: "{{ terraform_dir }}"
+
+    - name: Apply Terraform configuration
+      shell: terraform apply -auto-approve -var="vercel_api_token={{ lookup('env', 'VERCEL_TOKEN') }}" -var="gemini_api_key={{ lookup('env', 'GEMINI_API_KEY') }}" -var="github_repo={{ lookup('env', 'GITHUB_REPO') }}" -var="aws_region={{ lookup('env', 'AWS_REGION') }}"
+      args:
+        chdir: "{{ terraform_dir }}"
+      register: terraform_output
+      environment:
+        # Ensure AWS credentials are available to Terraform
+        AWS_ACCESS_KEY_ID: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+        AWS_SECRET_ACCESS_KEY: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+
+    - name: Display Terraform output
+      debug:
+        var: terraform_output.stdout_lines

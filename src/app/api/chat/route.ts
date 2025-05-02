@@ -1,16 +1,34 @@
 import { getApiModelConfig } from "@/lib/apiModels";
+import {
+  apiRequestDuration,
+  apiRequestsCounter,
+  tokensProcessedCounter,
+} from "@/lib/metrics";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   const encoder = new TextEncoder();
+  const startTime = Date.now();
+  let modelUsed = "unknown";
 
   try {
     const { message, context, model, apiKey } = await req.json();
 
     // Default to Gemini API if no specific model is provided
     const actualModel = model || "gemini-api";
+    modelUsed = actualModel;
+
+    // Approximate token count (rough estimate - 4 chars per token)
+    const inputTokens = Math.ceil((message?.length || 0) / 4);
+    tokensProcessedCounter.inc(
+      { model: modelUsed, type: "input" },
+      inputTokens
+    );
+
+    // Log to verify metrics are being recorded
+    console.log(`Incrementing input tokens for ${modelUsed}: ${inputTokens}`);
 
     // Handle API models (primarily Gemini)
     if (actualModel.endsWith("-api")) {
@@ -24,6 +42,8 @@ export async function POST(req: Request) {
           effectiveApiKey = process.env.GEMINI_API_KEY;
         }
         if (!effectiveApiKey) {
+          apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+          console.log(`Incrementing error counter for ${modelUsed}`);
           throw new Error(
             "API key not provided. Please add your API key in .env file or via the API model dialog."
           );
@@ -44,11 +64,31 @@ export async function POST(req: Request) {
 
         if (!response.ok) {
           console.error("API error response:", data);
+          apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+          console.log(`Incrementing error counter for ${modelUsed}`);
           throw new Error(data.error?.message || response.statusText);
         }
 
         const fullText = config.transformResponse(data);
-        if (!fullText) throw new Error("Empty response from API");
+        if (!fullText) {
+          apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+          console.log(`Incrementing error counter for ${modelUsed}`);
+          throw new Error("Empty response from API");
+        }
+
+        // Track successful request
+        apiRequestsCounter.inc({ model: modelUsed, status: "success" });
+        console.log(`Incrementing success counter for ${modelUsed}`);
+
+        // Estimate output tokens
+        const outputTokens = Math.ceil(fullText.length / 4);
+        tokensProcessedCounter.inc(
+          { model: modelUsed, type: "output" },
+          outputTokens
+        );
+        console.log(
+          `Incrementing output tokens for ${modelUsed}: ${outputTokens}`
+        );
 
         // Stream response back in chunks
         return new Response(
@@ -89,12 +129,21 @@ export async function POST(req: Request) {
         );
       } catch (error) {
         console.error("API processing error:", error);
+        apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+        console.log(`Incrementing error counter for ${modelUsed} on exception`);
         throw new Error(
           error instanceof Error ? error.message : "Unknown API error"
         );
+      } finally {
+        // Record request duration
+        const duration = (Date.now() - startTime) / 1000; // convert to seconds
+        apiRequestDuration.observe({ model: modelUsed }, duration);
+        console.log(`Recording duration for ${modelUsed}: ${duration}s`);
       }
     } else {
       // Return error if trying to use non-API models since we're removing Ollama support
+      apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+      console.log(`Incrementing error counter for non-API model ${modelUsed}`);
       return NextResponse.json(
         {
           error: "Only API models are supported",
@@ -106,6 +155,10 @@ export async function POST(req: Request) {
     }
   } catch (error) {
     console.error("API error:", error);
+    apiRequestsCounter.inc({ model: modelUsed, status: "error" });
+    console.log(
+      `Incrementing error counter for ${modelUsed} on outer exception`
+    );
     return NextResponse.json(
       {
         error: "Failed to process request",
@@ -116,5 +169,10 @@ export async function POST(req: Request) {
       },
       { status: 503 }
     );
+  } finally {
+    // Ensure we always record the request duration even if there's an error
+    const duration = (Date.now() - startTime) / 1000;
+    apiRequestDuration.observe({ model: modelUsed }, duration);
+    console.log(`Final recording of duration for ${modelUsed}: ${duration}s`);
   }
 }

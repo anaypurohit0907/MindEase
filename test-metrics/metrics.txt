@@ -1,0 +1,7 @@
+# HELP test_metric A test metric
+# TYPE test_metric gauge
+test_metric 42
+# HELP api_requests_total Total number of API requests
+# TYPE api_requests_total counter
+api_requests_total{model="gemini-api",status="success"} 1
+api_requests_total{model="gemini-api",status="error"} 0

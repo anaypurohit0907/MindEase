@@ -1,0 +1,52 @@
+---
+- name: Deploy to Vercel
+  hosts: local
+  vars:
+    project_dir: /home/anay/Desktop/MindEase
+    # Using environment variables directly - no need to redefine them
+  
+  tasks:
+    - name: Check if Vercel CLI is installed
+      command: vercel --version
+      register: vercel_version
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install Vercel CLI if not present
+      npm:
+        name: vercel
+        global: yes
+      when: vercel_version.rc != 0
+
+    - name: Create .vercel directory if it doesn't exist
+      file:
+        path: "{{ project_dir }}/.vercel"
+        state: directory
+
+    - name: Check if Bun is installed
+      shell: export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && bun --version
+      register: bun_version
+      changed_when: false
+      ignore_errors: true
+
+    - name: Install Bun if not present
+      shell: curl -fsSL https://bun.sh/install | bash
+      when: bun_version.rc != 0
+
+    - name: Install dependencies
+      shell: export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && bun install
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Build the application
+      shell: export BUN_INSTALL="$HOME/.bun" && export PATH="$BUN_INSTALL/bin:$PATH" && bun run build
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Deploy to Vercel
+      shell: vercel --token {{ lookup('env', 'VERCEL_TOKEN') }} --prod --yes
+      args:
+        chdir: "{{ project_dir }}"
+      environment:
+        # Pass through environment variables from parent process
+        GEMINI_API_KEY: "{{ lookup('env', 'GEMINI_API_KEY') }}"

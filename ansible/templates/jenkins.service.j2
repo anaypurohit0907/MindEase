@@ -1,0 +1,10 @@
+[Unit]
+Description=Jenkins Continuous Integration Server
+After=network.target
+
+[Service]
+Type=forking
+User=jenkins
+Environment="JENKINS_HOME=/var/lib/jenkins"
+Environment="VERCEL_TOKEN={{ vercel_token }}"
+Environment="GEMINI_API_KEY={{ gemini_api_key }}"

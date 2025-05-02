@@ -1,0 +1,105 @@
+---
+- name: Setup Jenkins Server
+  hosts: jenkins
+  become: yes
+  vars:
+    jenkins_admin_username: admin
+    jenkins_admin_password: "{{ lookup('env', 'JENKINS_ADMIN_PASSWORD') }}"
+    jenkins_plugins:
+      - git
+      - pipeline
+      - nodejs
+      - credentials
+      - vercel-deployer
+      - blueocean
+      - github-integration
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Java 11
+      apt:
+        name: openjdk-11-jdk
+        state: present
+
+    - name: Add Jenkins repository key
+      apt_key:
+        url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+        state: present
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: deb https://pkg.jenkins.io/debian-stable binary/
+        state: present
+        filename: jenkins
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+
+    - name: Install Vercel CLI globally
+      npm:
+        name: vercel
+        global: yes
+
+    - name: Install required packages for Bun
+      apt:
+        name: 
+          - curl
+          - unzip
+        state: present
+
+    - name: Install Bun
+      shell: curl -fsSL https://bun.sh/install | bash
+      args:
+        creates: $HOME/.bun/bin/bun
+      become: yes
+      become_user: jenkins
+
+    - name: Start Jenkins service
+      service:
+        name: jenkins
+        state: started
+        enabled: yes
+
+    - name: Wait for Jenkins to start
+      uri:
+        url: http://localhost:8080
+        status_code: 200
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 5
+      ignore_errors: yes
+
+    - name: Get Jenkins initial admin password
+      shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkins_admin_password_file
+      changed_when: false
+
+    - name: Print Jenkins initial admin password
+      debug:
+        var: jenkins_admin_password_file.stdout
+
+    - name: Install Jenkins plugins
+      jenkins_plugin:
+        name: "{{ item }}"
+        jenkins_home: /var/lib/jenkins
+        url_username: "{{ jenkins_admin_username }}"
+        url_password: "{{ jenkins_admin_password_file.stdout }}"
+      with_items: "{{ jenkins_plugins }}"
+      ignore_errors: yes
